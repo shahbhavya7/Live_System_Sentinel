@@ -1,72 +1,127 @@
 package com.sentinel.server;
 
+import com.google.gson.JsonObject;
 import com.sentinel.grpc.Alert;
+import com.sentinel.grpc.MonitorRequest;
 import com.sentinel.grpc.SentinelServiceGrpc;
 import com.sentinel.grpc.SystemStats;
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
 import io.grpc.stub.StreamObserver;
+import org.java_websocket.WebSocket;
+import org.java_websocket.handshake.ClientHandshake;
+import org.java_websocket.server.WebSocketServer;
 
 import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class SentinelServer {
 
+    private static final Set<StreamObserver<SystemStats>> dashboardClients = ConcurrentHashMap.newKeySet();
+    private static WebSocketServer webSocketServer;
+
     public static void main(String[] args) throws IOException, InterruptedException {
-        // 1. Setup the gRPC server to listen on port 9090
-        Server server = ServerBuilder.forPort(9090)
+
+        // 1. Setup the WebSocketServer on port 8081
+        webSocketServer = new WebSocketServer(new InetSocketAddress(8081)) {
+            @Override
+            public void onOpen(WebSocket conn, ClientHandshake handshake) {
+                System.out.println("Web UI connected: " + conn.getRemoteSocketAddress());
+            }
+
+            @Override
+            public void onClose(WebSocket conn, int code, String reason, boolean remote) {
+                System.out.println("Web UI disconnected.");
+            }
+
+            @Override
+            public void onMessage(WebSocket conn, String message) {
+            }
+
+            @Override
+            public void onError(WebSocket conn, Exception ex) {
+                System.err.println("WS Error: " + ex.getMessage());
+            }
+
+            @Override
+            public void onStart() {
+                System.out.println("WebSocket Server started successfully on port 8081!");
+            }
+        };
+
+        System.out.println("Starting WebSocket Server on port 8081...");
+        webSocketServer.start();
+
+        // 2. Setup the gRPC server on port 9090
+        Server grpcServer = ServerBuilder.forPort(9090)
                 .addService(new SentinelServiceImpl())
                 .build();
 
-        System.out.println("Starting SentinelServer on port 9090...");
-        server.start();
-        System.out.println("SentinelServer is up and listening for telemetry!");
+        System.out.println("Starting gRPC SentinelServer on port 9090...");
+        grpcServer.start();
+        System.out.println("gRPC SentinelServer is up and listening for telemetry!");
 
-        // 2. Keep the server running
-        server.awaitTermination();
+        grpcServer.awaitTermination();
     }
 
-    // 3. Service Implementation extending the generated base class
     static class SentinelServiceImpl extends SentinelServiceGrpc.SentinelServiceImplBase {
 
         @Override
-        public StreamObserver<SystemStats> streamStats(StreamObserver<Alert> responseObserver) {
-            
-            // Return an observer that processes incoming SystemStats messages stream
-            return new StreamObserver<SystemStats>() {
+        public void subscribeToDashboard(MonitorRequest request, StreamObserver<SystemStats> responseObserver) {
+            dashboardClients.add(responseObserver);
+        }
 
+        @Override
+        public StreamObserver<SystemStats> streamStats(StreamObserver<Alert> responseObserver) {
+            return new StreamObserver<SystemStats>() {
                 @Override
                 public void onNext(SystemStats stats) {
-                    // Print received telemetry nicely formatted
-                    System.out.printf(
-                            "[Telemetry Rx] CPU: %.2f%% | RAM: %d / %d MB | Active Threads: %d%n",
-                            stats.getCpuPercent(),
-                            stats.getMemoryUsedMb(),
-                            stats.getMemoryTotalMb(),
-                            stats.getActiveThreads()
-                    );
+                    System.out.printf("[Telemetry Rx] CPU: %.2f%% | RAM: %d / %d MB | Threads: %d%n",
+                            stats.getCpuPercent(), stats.getMemoryUsedMb(), stats.getMemoryTotalMb(),
+                            stats.getActiveThreads());
 
-                    // Execute Simple Threat Detection Rule
+                    // --- WebSocket Broadcasting ---
+                    JsonObject telemetryJson = new JsonObject();
+                    telemetryJson.addProperty("type", "telemetry");
+                    telemetryJson.addProperty("cpu", stats.getCpuPercent());
+                    telemetryJson.addProperty("ram", stats.getMemoryUsedMb());
+                    telemetryJson.addProperty("threads", stats.getActiveThreads());
+
+                    if (webSocketServer != null) {
+                        webSocketServer.broadcast(telemetryJson.toString());
+                    }
+
+                    // --- Threat Detection Rule ---
                     if (stats.getCpuPercent() > 90.0) {
-                        System.out.println("   => Threat Detected! Sending CRITICAL Alert to Agent.");
-                        
+                        System.out.println("   => Threat Detected! Sending CRITICAL Alert.");
+
                         Alert alert = Alert.newBuilder()
                                 .setSeverity("CRITICAL")
                                 .setMessage("CPU Spike Detected!")
                                 .setTimestamp(System.currentTimeMillis())
                                 .build();
-                                
                         responseObserver.onNext(alert);
+
+                        JsonObject alertJson = new JsonObject();
+                        alertJson.addProperty("type", "alert");
+                        alertJson.addProperty("severity", "CRITICAL");
+                        alertJson.addProperty("message",
+                                "CPU Spike! Usage at " + String.format("%.1f", stats.getCpuPercent()) + "%");
+
+                        if (webSocketServer != null) {
+                            webSocketServer.broadcast(alertJson.toString());
+                        }
                     }
                 }
 
                 @Override
                 public void onError(Throwable t) {
-                    System.err.println("Stream error from agent: " + t.getMessage());
                 }
 
                 @Override
                 public void onCompleted() {
-                    System.out.println("Agent closed its data stream.");
                     responseObserver.onCompleted();
                 }
             };

@@ -3,7 +3,9 @@ com\sentinel\grpc\MonitorProto.class
 com\sentinel\grpc\MonitorRequest$Builder.class
 com\sentinel\grpc\SentinelServiceGrpc$AsyncService.class
 com\sentinel\agent\SystemMonitorAgent$1.class
+com\sentinel\ui\SystemMonitorUI$1.class
 com\sentinel\grpc\SentinelServiceGrpc$SentinelServiceStub.class
+com\sentinel\server\SentinelServer$1.class
 com\sentinel\grpc\Alert.class
 com\sentinel\grpc\SentinelServiceGrpc$SentinelServiceFutureStub.class
 com\sentinel\grpc\SystemStatsOrBuilder.class
@@ -11,6 +13,7 @@ com\sentinel\grpc\MonitorRequest$1.class
 com\sentinel\grpc\SentinelServiceGrpc$MethodHandlers.class
 com\sentinel\grpc\SentinelServiceGrpc$SentinelServiceBlockingStub.class
 com\sentinel\grpc\SentinelServiceGrpc$2.class
+com\sentinel\ui\SystemMonitorUI.class
 com\sentinel\grpc\SystemStats.class
 com\sentinel\agent\SystemMonitorAgent.class
 com\sentinel\grpc\MonitorRequest.class

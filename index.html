@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live System Sentinel Web Dashboard</title>
+    <!-- Modern Styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- High Performance Chart Rendering -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+</head>
+<!-- Enforce Dark Mode Theme Defaults -->
+<body class="bg-slate-900 text-white font-sans antialiased">
+
+<div class="h-screen flex flex-col">
+    
+    <!-- Top Nav Header -->
+    <header class="bg-slate-800 p-4 shadow-md border-b border-slate-700 flex items-center justify-between">
+        <h1 class="text-xl md:text-2xl font-bold tracking-wide text-cyan-400">Live System Sentinel</h1>
+        
+        <!-- Live Connection Indicator -->
+        <div id="statusIndicator" class="flex items-center space-x-2 bg-slate-900/50 px-3 py-1.5 rounded-full border border-slate-700/50">
+            <span class="relative flex h-3 w-3">
+              <span id="pingRing" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+              <span id="pingDot" class="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+            </span>
+            <span id="statusText" class="text-sm font-medium text-slate-400">Listening...</span>
+        </div>
+    </header>
+
+    <!-- Main Grid Architecture -->
+    <main class="flex-1 grid grid-cols-1 md:grid-cols-3 xl:grid-cols-4 gap-6 p-6 overflow-hidden max-h-full">
+        
+        <!-- Left Sub-Grid: Streaming Telemetry Graphs -->
+        <div class="md:col-span-2 xl:col-span-3 flex flex-col space-y-6 overflow-y-auto pr-2 pb-2">
+            
+            <!-- CPU Container -->
+            <div class="bg-slate-800 rounded-xl p-5 shadow-lg border border-slate-700 hover:border-sky-500/30 transition-colors">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-lg font-semibold text-slate-200">CPU Load (%)</h2>
+                    <span id="cpuReadout" class="font-mono text-xl text-sky-400 font-bold">0%</span>
+                </div>
+                <div class="relative h-56 xl:h-72 w-full">
+                    <canvas id="cpuChart"></canvas>
+                </div>
+            </div>
+
+            <!-- RAM Container -->
+            <div class="bg-slate-800 rounded-xl p-5 shadow-lg border border-slate-700 hover:border-purple-500/30 transition-colors">
+                 <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-lg font-semibold text-slate-200">Memory Usage (MB)</h2>
+                    <span id="ramReadout" class="font-mono text-xl text-purple-400 font-bold">0 MB</span>
+                </div>
+                <div class="relative h-56 xl:h-72 w-full">
+                    <canvas id="ramChart"></canvas>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Right Sidebar: Threat Intelligence Stream -->
+        <div class="bg-slate-800 rounded-xl shadow-lg border border-slate-700 flex flex-col h-full overflow-hidden relative">
+            
+            <!-- Sticky Glowing Header -->
+            <div class="bg-red-950/40 p-4 border-b border-red-900/50 flex-shrink-0">
+                <h2 class="text-lg font-bold text-red-500 flex items-center">
+                    <svg class="w-5 h-5 mr-2 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                    Threat Intelligence Alerts
+                </h2>
+            </div>
+            
+            <!-- Auto-scrolling Vertical Log -->
+            <div id="alertsContainer" class="p-4 flex-1 overflow-y-auto space-y-3 custom-scrollbar">
+                <!-- Marker is removed dynamically upon first alert -->
+                <div class="text-center text-slate-500 font-mono text-sm mt-12 bg-slate-900/50 py-4 rounded-lg border border-slate-800 border-dashed backdrop-blur-sm" id="noAlertsMarker">
+                    No active threats.<br>Awaiting telemetry spikes...
+                </div>
+            </div>
+            
+        </div>
+    </main>
+</div>
+
+<script>
+    // ==========================================
+    // 1. Chart.js Environment Setup
+    // ==========================================
+    
+    // Globally enforce slate aesthetics for graph components
+    Chart.defaults.color = '#94a3b8'; // Tailwind text-slate-400
+    Chart.defaults.borderColor = '#334155'; // Tailwind border-slate-700
+    Chart.defaults.font.family = 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont';
+
+    const cpuCtx = document.getElementById('cpuChart').getContext('2d');
+    const ramCtx = document.getElementById('ramChart').getContext('2d');
+
+    // Reusable factory for highly optimized dynamic lines
+    const createConfig = (hexColor, yMax) => ({
+        type: 'line',
+        data: {
+            labels: [], // Time indexes
+            datasets: [{
+                data: [], // Telemetry values
+                borderColor: hexColor,
+                backgroundColor: hexColor + '20', // Append slight alpha opacity to hex
+                borderWidth: 2.5,
+                pointRadius: 0, // Disable point hover markers for strict performance
+                fill: true,
+                tension: 0.4  // Fluid bezier curves
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: false, // Critical bypass to allow fluid sub-second ticks
+            plugins: {
+                legend: { display: false },
+                tooltip: { enabled: false }
+            },
+            scales: {
+                x: { display: false }, // Hide the raw Ticks
+                y: {
+                    min: 0,
+                    max: yMax,
+                    grid: { color: '#334155' },
+                    border: { display: false }
+                }
+            }
+        }
+    });
+
+    const cpuChart = new Chart(cpuCtx, createConfig('#38bdf8', 100)); // sky-400
+    const ramChart = new Chart(ramCtx, createConfig('#c084fc', undefined)); // purple-400, scales dynamically to Machine limits
+
+    // ==========================================
+    // 2. WebSocket Listener Mapping
+    // ==========================================
+
+    let timeIndex = 0;           // Simulates moving horizontal X axis
+    const SCROLL_LIMIT = 60;     // Lock array size to exact 60 units deep 
+
+    const ws = new WebSocket('ws://localhost:8081');
+
+    ws.onopen = () => {
+        document.getElementById('statusText').innerText = 'Online via Socket';
+        document.getElementById('statusText').classList.replace('text-slate-400', 'text-emerald-400');
+        document.getElementById('pingRing').classList.replace('bg-red-400', 'bg-emerald-400');
+        document.getElementById('pingDot').classList.replace('bg-red-500', 'bg-emerald-500');
+    };
+
+    ws.onclose = () => {
+        document.getElementById('statusText').innerText = 'Offline - Reconnecting...';
+        document.getElementById('statusText').classList.replace('text-emerald-400', 'text-red-400');
+        document.getElementById('pingRing').classList.replace('bg-emerald-400', 'bg-red-400');
+        document.getElementById('pingDot').classList.replace('bg-emerald-500', 'bg-red-500');
+    };
+
+    ws.onmessage = (event) => {
+        const payload = JSON.parse(event.data);
+
+        // --- Stream Engine Map ---
+        if (payload.type === 'telemetry') {
+            
+            // Mirror live textual metrics
+            document.getElementById('cpuReadout').innerText = payload.cpu.toFixed(1) + '%';
+            document.getElementById('ramReadout').innerText = payload.ram + ' MB';
+
+            // Mutate Arrays
+            cpuChart.data.labels.push(timeIndex);
+            cpuChart.data.datasets[0].data.push(payload.cpu);
+            
+            ramChart.data.labels.push(timeIndex);
+            ramChart.data.datasets[0].data.push(payload.ram);
+
+            // Horizontally Scroll Chart logic
+            if (cpuChart.data.labels.length > SCROLL_LIMIT) {
+                // Drop strictly index 0
+                cpuChart.data.labels.shift();
+                cpuChart.data.datasets[0].data.shift();
+                
+                ramChart.data.labels.shift();
+                ramChart.data.datasets[0].data.shift();
+            }
+
+            cpuChart.update();
+            ramChart.update();
+            timeIndex++;
+            
+        } 
+        // --- Security Alert Map ---
+        else if (payload.type === 'alert') {
+            
+            const logsBox = document.getElementById('alertsContainer');
+            const placeholder = document.getElementById('noAlertsMarker');
+            
+            if (placeholder) {  
+                placeholder.remove(); // Evict blank state UI  
+            }
+
+            // Generate DOM Alert Card
+            const alertNode = document.createElement('div');
+            alertNode.className = 'bg-red-950/60 border-l-4 border-red-500 rounded p-3 shadow-md animate-slide-in';
+            
+            const timestamp = new Date().toLocaleTimeString();
+            
+            // Format inside
+            alertNode.innerHTML = `
+                <div class="flex justify-between items-start mb-2">
+                    <span class="text-xs font-bold text-red-100 bg-red-600 px-2 py-0.5 rounded shadow-sm">
+                        ${payload.severity}
+                    </span>
+                    <span class="text-xs font-mono text-slate-400">${timestamp}</span>
+                </div>
+                <p class="text-sm text-red-200 mt-1 flex items-center">
+                    ${payload.message}
+                </p>
+            `;
+
+            // Prepend strictly ensures LIFO (Top-Down execution rendering)
+            logsBox.prepend(alertNode);
+            
+            // Restrict memory leak to capping only last 25 visuals
+            if (logsBox.children.length > 25) {
+                logsBox.lastElementChild.remove();
+            }
+        }
+    };
+
+    // Inline utility styling appended to shadow DOM
+    const runtimeStyles = document.createElement('style');
+    runtimeStyles.innerHTML = `
+        /* Tailored custom-scrollbar since Webkit drops it randomly */
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #0f172a; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #475569; }
+        
+        /* Micro-interaction UI for alerts spawning natively top to down */
+        @keyframes slide-in {
+            0% { opacity: 0; transform: translateY(-10px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+        .animate-slide-in {
+            animation: slide-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+    `;
+    document.head.appendChild(runtimeStyles);
+</script>
+
+</body>
+</html>
