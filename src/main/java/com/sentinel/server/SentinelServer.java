@@ -19,12 +19,18 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class SentinelServer {
 
+    // Thread-safe set of connected UI dashboards (JavaFX)
     private static final Set<StreamObserver<SystemStats>> dashboardClients = ConcurrentHashMap.newKeySet();
+    
+    // Static WebSocketServer for broadcasting Web UI telemetry
     private static WebSocketServer webSocketServer;
 
-    public static void main(String[] args) throws IOException, InterruptedException {
+    // Rate Limiter cache holding last seen timestamps per isolated Agent Network ID
+    private static final ConcurrentHashMap<String, Long> lastSeen = new ConcurrentHashMap<>();
 
-        // 1. Setup the WebSocketServer on port 8081
+    public static void main(String[] args) throws IOException, InterruptedException {
+        
+        // 1. Setup the WebSocketServer to listen on port 8081 (for Web Browser clients)
         webSocketServer = new WebSocketServer(new InetSocketAddress(8081)) {
             @Override
             public void onOpen(WebSocket conn, ClientHandshake handshake) {
@@ -38,6 +44,7 @@ public class SentinelServer {
 
             @Override
             public void onMessage(WebSocket conn, String message) {
+                // Empty override
             }
 
             @Override
@@ -54,7 +61,7 @@ public class SentinelServer {
         System.out.println("Starting WebSocket Server on port 8081...");
         webSocketServer.start();
 
-        // 2. Setup the gRPC server on port 9090
+        // 2. Setup the gRPC server to listen on port 9090
         Server grpcServer = ServerBuilder.forPort(9090)
                 .addService(new SentinelServiceImpl())
                 .build();
@@ -63,9 +70,11 @@ public class SentinelServer {
         grpcServer.start();
         System.out.println("gRPC SentinelServer is up and listening for telemetry!");
 
+        // 3. Keep the server running
         grpcServer.awaitTermination();
     }
 
+    // 4. Service Implementation extending the generated base class
     static class SentinelServiceImpl extends SentinelServiceGrpc.SentinelServiceImplBase {
 
         @Override
@@ -75,16 +84,42 @@ public class SentinelServer {
 
         @Override
         public StreamObserver<SystemStats> streamStats(StreamObserver<Alert> responseObserver) {
+            
+            // Return an observer that processes incoming SystemStats messages stream
             return new StreamObserver<SystemStats>() {
+
                 @Override
                 public void onNext(SystemStats stats) {
-                    System.out.printf("[Telemetry Rx] CPU: %.2f%% | RAM: %d / %d MB | Threads: %d%n",
-                            stats.getCpuPercent(), stats.getMemoryUsedMb(), stats.getMemoryTotalMb(),
-                            stats.getActiveThreads());
+                    
+                    String agentId = stats.getAgentId();
+                    
+                    // --- Hardware Rate Limiter Firewall (500ms max speed) ---
+                    Long lastTime = lastSeen.get(agentId);
+                    long currentTime = System.currentTimeMillis();
+                    
+                    // Securely verify timestamp maps, explicitly drop ghost/flooding packets 
+                    // attempting to DDoS buffer arrays faster than half a second interval limit.
+                    if (lastTime != null && (currentTime - lastTime < 500)) {
+                        return; 
+                    }
+                    
+                    // Overwrite state array unlocking 1 processing pipeline logic
+                    lastSeen.put(agentId, currentTime);
 
-                    // --- WebSocket Broadcasting ---
+                    // Print received telemetry elegantly partitioned
+                    System.out.printf(
+                            "[Agent: %s] | CPU: %05.2f%% | RAM: %4d / %4d MB | Threads: %3d%n",
+                            agentId,
+                            stats.getCpuPercent(),
+                            stats.getMemoryUsedMb(),
+                            stats.getMemoryTotalMb(),
+                            stats.getActiveThreads()
+                    );
+
+                    // --- WebSocket Broadcasting (Web UI) ---
                     JsonObject telemetryJson = new JsonObject();
                     telemetryJson.addProperty("type", "telemetry");
+                    telemetryJson.addProperty("agent_id", agentId);
                     telemetryJson.addProperty("cpu", stats.getCpuPercent());
                     telemetryJson.addProperty("ram", stats.getMemoryUsedMb());
                     telemetryJson.addProperty("threads", stats.getActiveThreads());
@@ -93,25 +128,37 @@ public class SentinelServer {
                         webSocketServer.broadcast(telemetryJson.toString());
                     }
 
-                    // --- Threat Detection Rule ---
+                    // --- Execute Deep Threat Detection Rule ---
                     if (stats.getCpuPercent() > 90.0) {
-                        System.out.println("   => Threat Detected! Sending CRITICAL Alert.");
-
+                        System.out.println("   => Threat Detected! Flagging " + agentId + ".");
+                        
+                        // Drop an Alert inside the strict Agent-Mapped gRPC Thread Pipeline
                         Alert alert = Alert.newBuilder()
                                 .setSeverity("CRITICAL")
-                                .setMessage("CPU Spike Detected!")
-                                .setTimestamp(System.currentTimeMillis())
+                                .setMessage("CPU Spike Detected on " + agentId + "!")
+                                .setTimestamp(currentTime)
                                 .build();
+                                
                         responseObserver.onNext(alert);
 
+                        // Broadcast Alert independently across Web UI Sockets Global Broadcaster
                         JsonObject alertJson = new JsonObject();
                         alertJson.addProperty("type", "alert");
+                        alertJson.addProperty("agent_id", agentId);
                         alertJson.addProperty("severity", "CRITICAL");
-                        alertJson.addProperty("message",
-                                "CPU Spike! Usage at " + String.format("%.1f", stats.getCpuPercent()) + "%");
-
+                        alertJson.addProperty("message", "CPU Spike! Core usage breached " + String.format("%.1f", stats.getCpuPercent()) + "%");
+                        
                         if (webSocketServer != null) {
                             webSocketServer.broadcast(alertJson.toString());
+                        }
+                    }
+
+                    // Flush valid secure array structs back over standard JavaFX connections
+                    for (StreamObserver<SystemStats> client : dashboardClients) {
+                        try {
+                            client.onNext(stats);
+                        } catch (Exception e) {
+                            dashboardClients.remove(client);
                         }
                     }
                 }
