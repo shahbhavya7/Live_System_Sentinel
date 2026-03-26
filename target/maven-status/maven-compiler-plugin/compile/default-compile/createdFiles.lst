@@ -15,6 +15,7 @@ com\sentinel\grpc\SentinelServiceGrpc$SentinelServiceBlockingStub.class
 com\sentinel\grpc\SentinelServiceGrpc$2.class
 com\sentinel\ui\SystemMonitorUI.class
 com\sentinel\grpc\SystemStats.class
+com\sentinel\server\SentinelServer$2.class
 com\sentinel\agent\SystemMonitorAgent.class
 com\sentinel\grpc\MonitorRequest.class
 com\sentinel\grpc\SentinelServiceGrpc$SentinelServiceFileDescriptorSupplier.class

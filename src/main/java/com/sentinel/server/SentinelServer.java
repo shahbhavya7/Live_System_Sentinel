@@ -1,10 +1,14 @@
 package com.sentinel.server;
 
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.sentinel.grpc.Alert;
 import com.sentinel.grpc.MonitorRequest;
 import com.sentinel.grpc.SentinelServiceGrpc;
 import com.sentinel.grpc.SystemStats;
+import com.sun.net.httpserver.HttpExchange;
+import com.sun.net.httpserver.HttpHandler;
+import com.sun.net.httpserver.HttpServer;
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
 import io.grpc.stub.StreamObserver;
@@ -13,7 +17,10 @@ import org.java_websocket.handshake.ClientHandshake;
 import org.java_websocket.server.WebSocketServer;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -61,7 +68,63 @@ public class SentinelServer {
         System.out.println("Starting WebSocket Server on port 8081...");
         webSocketServer.start();
 
-        // 2. Setup the gRPC server to listen on port 9090
+        // 2. Setup REST API Server on port 8080 for HTTP Webhooks
+        HttpServer httpServer = HttpServer.create(new InetSocketAddress(8080), 0);
+        httpServer.createContext("/api/stats", new HttpHandler() {
+            @Override
+            public void handle(HttpExchange exchange) throws IOException {
+                if ("POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+                    try (InputStream is = exchange.getRequestBody()) {
+                        // Read and Parse incoming JSON Payload natively via standard charsets
+                        String body = new String(is.readAllBytes(), StandardCharsets.UTF_8);
+                        JsonObject jsonObject = JsonParser.parseString(body).getAsJsonObject();
+                        
+                        String agentId = jsonObject.has("agent_id") ? jsonObject.get("agent_id").getAsString() : "Unknown";
+                        double cpu = jsonObject.has("cpu") ? jsonObject.get("cpu").getAsDouble() : 0.0;
+                        long ram = jsonObject.has("ram") ? jsonObject.get("ram").getAsLong() : 0;
+                        int threads = jsonObject.has("threads") ? jsonObject.get("threads").getAsInt() : 0;
+
+                        // Print webhook receipt onto standard deployment terminal logs
+                        System.out.printf("[Webhook Rx] Agent %s | CPU: %.2f%% | RAM: %d MB | Thr: %d%n",
+                                agentId, cpu, ram, threads);
+
+                        // Enforce specific UI routing constraint 
+                        jsonObject.addProperty("type", "telemetry");
+
+                        // Bridge entirely separate network paradigms by pushing HTTP directly to Websockets
+                        if (webSocketServer != null) {
+                            webSocketServer.broadcast(jsonObject.toString());
+                        }
+
+                        // Flush standard 200 HTTP acknowledgment
+                        String responseText = "Data Accepted";
+                        exchange.sendResponseHeaders(200, responseText.length());
+                        try (OutputStream os = exchange.getResponseBody()) {
+                            os.write(responseText.getBytes(StandardCharsets.UTF_8));
+                        }
+                    } catch (Exception e) {
+                        System.err.println("Webhook parsing pipeline crash: " + e.getMessage());
+                        String errorText = "Internal Server Error";
+                        exchange.sendResponseHeaders(500, errorText.length());
+                        try (OutputStream os = exchange.getResponseBody()) {
+                            os.write(errorText.getBytes(StandardCharsets.UTF_8));
+                        }
+                    }
+                } else {
+                    String methodNotAllowed = "Method Not Allowed";
+                    exchange.sendResponseHeaders(405, methodNotAllowed.length());
+                    try (OutputStream os = exchange.getResponseBody()) {
+                        os.write(methodNotAllowed.getBytes(StandardCharsets.UTF_8));
+                    }
+                }
+            }
+        });
+        
+        System.out.println("Starting REST HTTP Server on port 8080...");
+        httpServer.setExecutor(null);
+        httpServer.start();
+
+        // 3. Setup the gRPC server to listen on port 9090
         Server grpcServer = ServerBuilder.forPort(9090)
                 .addService(new SentinelServiceImpl())
                 .build();
@@ -70,11 +133,11 @@ public class SentinelServer {
         grpcServer.start();
         System.out.println("gRPC SentinelServer is up and listening for telemetry!");
 
-        // 3. Keep the server running
+        // 4. Keep the server running
         grpcServer.awaitTermination();
     }
 
-    // 4. Service Implementation extending the generated base class
+    // 5. Service Implementation extending the generated base class
     static class SentinelServiceImpl extends SentinelServiceGrpc.SentinelServiceImplBase {
 
         @Override
