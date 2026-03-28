@@ -18,7 +18,11 @@ message SystemStats {
     int64 memory_total_mb = 3;  
     int32 active_threads = 4;   
     int64 timestamp = 5;    
-    string agent_id = 6;    
+    string agent_id = 6;
+    double disk_used_percent = 7;
+    double network_rx_mb = 8;
+    double network_tx_mb = 9;
+    double uptime_hours = 10;
 }
 
 // The Alert message for the Security Brain

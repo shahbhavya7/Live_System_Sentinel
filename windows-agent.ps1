@@ -1,37 +1,55 @@
-[string]$ServerUri = "https://uncondoled-ashlyn-spastically.ngrok-free.dev/api/stats"
-
-Write-Host "==============================================" -ForegroundColor Cyan
-Write-Host " Sentinel Windows Telemetry Agent Initialized" -ForegroundColor Cyan
-Write-Host " Target Webhook: $ServerUri" -ForegroundColor Cyan
-Write-Host "==============================================`n" -ForegroundColor Cyan
+[string]$ServerUri = "https://uncondoled-ashlyn-spastically.ngrok-free.dev/api/stats" # <-- CHANGE THIS IF NEEDED
 
 while ($true) {
-    try {
-        # Safely Intercept Hardware Metrics
-        $cpuInfo = Get-WmiObject Win32_Processor
-        $cpu = if ($cpuInfo) { [math]::Round(($cpuInfo | Measure-Object -Property LoadPercentage -Average).Average, 1) } else { 0 }
-        
-        $os = Get-WmiObject Win32_OperatingSystem
-        $ramMB = if ($os) { [math]::Round(($os.TotalVisibleMemorySize - $os.FreePhysicalMemory) / 1024) } else { 0 }
-        
-        $threads = (Get-Process | Measure-Object).Count
+     try {
+         # 1. Intercept Native Windows Hardware Metrics
+         $cpu = [math]::Round((Get-CimInstance Win32_Processor | Measure-Object -Property LoadPercentage -Average).Average, 1)
 
-        # Package Strict JSON Payload
-        $payload = @{
-            agent_id = "Global-Windows-Node"
-            cpu      = $cpu
-            ram      = $ramMB
-            threads  = $threads
-        } | ConvertTo-Json -Compress
+         $os = Get-CimInstance Win32_OperatingSystem
+         $ramMB = [math]::Round(($os.TotalVisibleMemorySize - $os.FreePhysicalMemory) / 1024)
 
-        # Transmit HTTP POST Packet globally
-        Invoke-RestMethod -Uri $ServerUri -Method Post -Body $payload -ContentType "application/json" | Out-Null
-        
-        Write-Host "[Global-Windows-Node] Successfully Broadcast -> CPU: $cpu% | RAM: ${ramMB} MB | Threads: $threads" -ForegroundColor Green
-    } 
-    catch {
-        Write-Host "[!] Server Error: $_" -ForegroundColor Red
-    }
-    
-    Start-Sleep -Seconds 1
+         # Bypass `Get-Process` Access Denied locks by polling kernel-level WMI objects natively
+         $threads = (Get-CimInstance Win32_Process | Measure-Object -Property ThreadCount -Sum).Sum
+
+         # Storage Analysis (C: Drive)
+         $disk = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'"
+         $disk_percent = 0.0
+         if ($disk -ne $null -and $disk.Size -gt 0) {
+             $disk_percent = [math]::Round((($disk.Size - $disk.FreeSpace) / $disk.Size) * 100, 1) # or just 99.9
+         }
+
+         # Global Network Bridge Throughput (Active Adapters)
+         $netStats = Get-NetAdapterStatistics 2>$null | Where-Object { $_.ReceivedBytes -gt 0 -or $_.SentBytes -gt 0 }
+         $rx_bytes = if ($netStats) { ($netStats | Measure-Object -Property ReceivedBytes -Sum).Sum } else { 0 }
+         $tx_bytes = if ($netStats) { ($netStats | Measure-Object -Property SentBytes -Sum).Sum } else { 0 }
+         $network_rx_mb = [math]::Round($rx_bytes / 1MB, 2)
+         $network_tx_mb = [math]::Round($tx_bytes / 1MB, 2)
+
+         # Total System Uptime
+         $uptime_hours = [math]::Round(((Get-Date) - $os.LastBootUpTime).TotalHours, 2)
+
+         # 2. Package Strict JSON Payload
+         $payload = @{
+             agent_id      = "Windows-Node"
+             cpu           = $cpu
+             ram           = $ramMB
+             threads       = $threads
+             disk_percent  = $disk_percent
+             network_rx_mb = $network_rx_mb
+             network_tx_mb = $network_tx_mb
+             uptime_hours  = $uptime_hours
+         } | ConvertTo-Json -Compress
+
+         # 3. Transmit HTTP POST Packet over REST Tunnel
+         Invoke-RestMethod -Uri $ServerUri -Method Post -Body $payload -ContentType "application/json" | Out-Null
+
+         # Terminal Visualizer Snapshot
+         Write-Host "[Windows-Node] Extracted -> CPU: $cpu% | RAM: ${ramMB} MB | Thr: $threads | Disk: ${disk_percent}% | Rx: ${network_rx_mb} MB | Tx: ${network_tx_mb} MB | Up: ${uptime_hours} h" -ForegroundColor Green
+     }
+     catch {
+         # THIS IS THE MAGIC FIX: It will print the exact reason it crashed
+         Write-Host "[!] Crash Report: $_" -ForegroundColor Red
+     }
+
+     Start-Sleep -Seconds 1
 }

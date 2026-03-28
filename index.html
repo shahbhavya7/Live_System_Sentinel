@@ -3,249 +3,316 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Live System Sentinel Web Dashboard</title>
-    <!-- Modern Styling -->
+    <title>SRE Sentinel Dashboard</title>
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- High Performance Chart Rendering -->
+    <!-- Chart.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 </head>
-<!-- Enforce Dark Mode Theme Defaults -->
-<body class="bg-slate-900 text-white font-sans antialiased">
+<body class="bg-slate-950 text-slate-300 font-sans antialiased overflow-hidden h-screen flex flex-col">
 
-<div class="h-screen flex flex-col">
-    
-    <!-- Top Nav Header -->
-    <header class="bg-slate-800 p-4 shadow-md border-b border-slate-700 flex items-center justify-between">
-        <h1 class="text-xl md:text-2xl font-bold tracking-wide text-cyan-400">Live System Sentinel</h1>
+    <!-- Header Panel -->
+    <header class="bg-slate-900 border-b border-slate-800 p-4 shadow-xl flex items-center justify-between shrink-0 z-20">
+        <div class="flex items-center space-x-3">
+            <div class="bg-sky-500/10 p-2 rounded-lg border border-sky-500/20">
+                <svg class="w-6 h-6 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+            </div>
+            <h1 class="text-xl md:text-2xl font-bold tracking-widest text-slate-100 uppercase uppercase">Sentinel SRE</h1>
+        </div>
         
-        <!-- Live Connection Indicator -->
-        <div id="statusIndicator" class="flex items-center space-x-2 bg-slate-900/50 px-3 py-1.5 rounded-full border border-slate-700/50">
-            <span class="relative flex h-3 w-3">
+        <div class="flex items-center space-x-2 bg-slate-950 px-4 py-2 rounded-full border border-slate-800 shadow-inner">
+            <span class="relative flex h-2.5 w-2.5">
               <span id="pingRing" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-              <span id="pingDot" class="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+              <span id="pingDot" class="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
             </span>
-            <span id="statusText" class="text-sm font-medium text-slate-400">Listening...</span>
+            <span id="statusText" class="text-xs uppercase font-bold tracking-widest text-slate-500">Awaiting Signal</span>
         </div>
     </header>
 
-    <!-- Main Grid Architecture -->
-    <main class="flex-1 grid grid-cols-1 md:grid-cols-3 xl:grid-cols-4 gap-6 p-6 overflow-hidden max-h-full">
+    <!-- Main Execution Grid -->
+    <main class="flex-1 grid grid-cols-1 lg:grid-cols-4 gap-4 p-4 md:p-6 overflow-hidden max-h-full">
         
-        <!-- Left Sub-Grid: Streaming Telemetry Graphs -->
-        <div class="md:col-span-2 xl:col-span-3 flex flex-col space-y-6 overflow-y-auto pr-2 pb-2">
+        <!-- Left Sub-Grid (3 Cols): Mission Control Metrics -->
+        <div class="lg:col-span-3 flex flex-col space-y-4 overflow-y-auto pr-2 custom-scrollbar">
             
-            <!-- CPU Container -->
-            <div class="bg-slate-800 rounded-xl p-5 shadow-lg border border-slate-700 hover:border-sky-500/30 transition-colors">
-                <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-lg font-semibold text-slate-200">CPU Load (%)</h2>
-                    <span id="cpuReadout" class="font-mono text-xl text-sky-400 font-bold">0%</span>
+            <!-- Top Dashboard Row: Text Cards & Gauges -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 shrink-0">
+                
+                <!-- System Uptime -->
+                <div class="bg-slate-900 rounded-xl p-5 shadow-lg border border-slate-800 flex flex-col justify-center relative overflow-hidden group hover:border-amber-500/30 transition-colors">
+                    <div class="absolute -right-4 -top-4 w-16 h-16 bg-amber-500/5 rounded-full blur-xl group-hover:bg-amber-500/10 transition-all"></div>
+                    <h3 class="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] mb-1">System Uptime</h3>
+                    <div class="flex items-baseline space-x-2">
+                        <span id="uptimeReadout" class="text-3xl font-mono text-slate-100 font-bold tracking-tighter">0.0</span>
+                        <span class="text-xs text-amber-500 font-bold uppercase tracking-wider">Hours</span>
+                    </div>
                 </div>
-                <div class="relative h-56 xl:h-72 w-full">
-                    <canvas id="cpuChart"></canvas>
+
+                <!-- Active Threads -->
+                <div class="bg-slate-900 rounded-xl p-5 shadow-lg border border-slate-800 flex flex-col justify-center relative overflow-hidden group hover:border-emerald-500/30 transition-colors">
+                    <div class="absolute -right-4 -top-4 w-16 h-16 bg-emerald-500/5 rounded-full blur-xl group-hover:bg-emerald-500/10 transition-all"></div>
+                    <h3 class="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] mb-1">Active Threads</h3>
+                    <div class="flex items-baseline space-x-2">
+                        <span id="threadsReadout" class="text-3xl font-mono text-slate-100 font-bold tracking-tighter">0</span>
+                        <span class="text-xs text-emerald-500 font-bold uppercase tracking-wider">Threads</span>
+                    </div>
+                </div>
+
+                <!-- Disk Usage Progress Bar -->
+                <div class="bg-slate-900 rounded-xl p-5 shadow-lg border border-slate-800 flex flex-col justify-center hover:border-cyan-500/30 transition-colors">
+                    <div class="flex justify-between items-end mb-2">
+                        <h3 class="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">Storage (C:)</h3>
+                        <span id="diskReadoutLabel" class="text-lg font-mono text-slate-100 font-bold leading-none">0%</span>
+                    </div>
+                    <!-- The animated fill wrapper -->
+                    <div class="w-full bg-slate-950 rounded-full h-2 shadow-inner overflow-hidden border border-slate-800/80">
+                        <!-- Dynamic span -->
+                        <div id="diskProgressBar" class="bg-cyan-500 h-full rounded-full transition-all duration-300 ease-out" style="width: 0%"></div>
+                    </div>
                 </div>
             </div>
 
-            <!-- RAM Container -->
-            <div class="bg-slate-800 rounded-xl p-5 shadow-lg border border-slate-700 hover:border-purple-500/30 transition-colors">
-                 <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-lg font-semibold text-slate-200">Memory Usage (MB)</h2>
-                    <span id="ramReadout" class="font-mono text-xl text-purple-400 font-bold">0 MB</span>
+            <!-- Charts Row 1: CPU & RAM -->
+            <div class="grid grid-cols-1 xl:grid-cols-2 gap-4 shrink-0">
+                <!-- CPU Usage -->
+                <div class="bg-slate-900 rounded-xl p-4 shadow-lg border border-slate-800 flex flex-col hover:border-sky-500/20 transition-colors">
+                    <div class="flex justify-between items-center mb-3">
+                        <h2 class="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">Compute Load</h2>
+                        <span id="cpuReadout" class="font-mono text-sm text-sky-400 font-bold bg-sky-950/30 border border-sky-900/50 px-2 py-0.5 rounded">0%</span>
+                    </div>
+                    <div class="relative h-44 w-full"><canvas id="cpuChart"></canvas></div>
                 </div>
-                <div class="relative h-56 xl:h-72 w-full">
-                    <canvas id="ramChart"></canvas>
+
+                <!-- RAM Usage -->
+                <div class="bg-slate-900 rounded-xl p-4 shadow-lg border border-slate-800 flex flex-col hover:border-purple-500/20 transition-colors">
+                    <div class="flex justify-between items-center mb-3">
+                        <h2 class="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">Memory Allocation</h2>
+                        <span id="ramReadout" class="font-mono text-sm text-purple-400 font-bold bg-purple-950/30 border border-purple-900/50 px-2 py-0.5 rounded">0 MB</span>
+                    </div>
+                    <div class="relative h-44 w-full"><canvas id="ramChart"></canvas></div>
                 </div>
+            </div>
+
+            <!-- Charts Row 2: Dual-line Network Map -->
+            <div class="bg-slate-900 rounded-xl p-4 shadow-lg border border-slate-800 flex flex-col shrink-0 min-h-[220px] hover:border-emerald-500/20 transition-colors">
+                <div class="flex justify-between items-center mb-3">
+                    <h2 class="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">Network Throughput</h2>
+                    
+                    <div class="flex space-x-3 font-mono text-[11px] font-bold bg-slate-950 border border-slate-800 px-3 py-1 rounded">
+                        <span class="text-emerald-400 flex items-center">
+                            <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path></svg>
+                            Rx: <span id="rxReadout" class="ml-1 text-slate-300">0.00</span> MB
+                        </span>
+                        <span class="text-slate-700">|</span>
+                        <span class="text-rose-400 flex items-center">
+                            <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"></path></svg>
+                            Tx: <span id="txReadout" class="ml-1 text-slate-300">0.00</span> MB
+                        </span>
+                    </div>
+                </div>
+                <div class="relative h-48 w-full"><canvas id="networkChart"></canvas></div>
             </div>
 
         </div>
 
-        <!-- Right Sidebar: Threat Intelligence Stream -->
-        <div class="bg-slate-800 rounded-xl shadow-lg border border-slate-700 flex flex-col h-full overflow-hidden relative">
-            
-            <!-- Sticky Glowing Header -->
-            <div class="bg-red-950/40 p-4 border-b border-red-900/50 flex-shrink-0">
-                <h2 class="text-lg font-bold text-red-500 flex items-center">
-                    <svg class="w-5 h-5 mr-2 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
-                    Threat Intelligence Alerts
+        <!-- Right Sub-Grid (1 Col): SRE Threat Operations Sidebar -->
+        <div class="bg-slate-900 rounded-xl shadow-xl border border-rose-900/20 flex flex-col h-full overflow-hidden relative lg:col-span-1">
+            <div class="bg-gradient-to-r from-rose-950/40 to-slate-900/40 p-4 border-b border-rose-900/30 backdrop-blur-md flex-shrink-0">
+                <h2 class="text-xs font-bold text-rose-500 uppercase tracking-[0.2em] flex items-center">
+                    <svg class="w-3 h-3 mr-2 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                    Intelligence Feed
                 </h2>
             </div>
             
-            <!-- Auto-scrolling Vertical Log -->
-            <div id="alertsContainer" class="p-4 flex-1 overflow-y-auto space-y-3 custom-scrollbar">
-                <!-- Marker is removed dynamically upon first alert -->
-                <div class="text-center text-slate-500 font-mono text-sm mt-12 bg-slate-900/50 py-4 rounded-lg border border-slate-800 border-dashed backdrop-blur-sm" id="noAlertsMarker">
-                    No active threats.<br>Awaiting telemetry spikes...
+            <div id="alertsContainer" class="p-3 flex-1 overflow-y-auto space-y-2.5 custom-scrollbar bg-slate-950/20">
+                <div class="text-center text-slate-600 font-mono tracking-tight text-[10px] mt-12 px-2" id="noAlertsMarker">
+                    <div class="w-full border-t border-slate-800/50 mb-4"></div>
+                    System nominal.<br>Awaiting automated SIEM incident triggers...
                 </div>
             </div>
-            
         </div>
     </main>
-</div>
 
-<script>
-    // ==========================================
-    // 1. Chart.js Environment Setup
-    // ==========================================
-    
-    // Globally enforce slate aesthetics for graph components
-    Chart.defaults.color = '#94a3b8'; // Tailwind text-slate-400
-    Chart.defaults.borderColor = '#334155'; // Tailwind border-slate-700
-    Chart.defaults.font.family = 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont';
+    <!-- UI Execution Scripts -->
+    <script>
+        // ==========================================
+        // 1. Chart.js Global Initialization
+        // ==========================================
+        Chart.defaults.color = '#64748b'; // Tailwind text-slate-500
+        Chart.defaults.borderColor = '#1e293b'; // Tailwind border-slate-800
+        Chart.defaults.font.family = 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace';
 
-    const cpuCtx = document.getElementById('cpuChart').getContext('2d');
-    const ramCtx = document.getElementById('ramChart').getContext('2d');
+        const cpuCtx = document.getElementById('cpuChart').getContext('2d');
+        const ramCtx = document.getElementById('ramChart').getContext('2d');
+        const netCtx = document.getElementById('networkChart').getContext('2d');
 
-    // Reusable factory for highly optimized dynamic lines
-    const createConfig = (hexColor, yMax) => ({
-        type: 'line',
-        data: {
-            labels: [], // Time indexes
-            datasets: [{
-                data: [], // Telemetry values
-                borderColor: hexColor,
-                backgroundColor: hexColor + '20', // Append slight alpha opacity to hex
-                borderWidth: 2.5,
-                pointRadius: 0, // Disable point hover markers for strict performance
-                fill: true,
-                tension: 0.4  // Fluid bezier curves
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            animation: false, // Critical bypass to allow fluid sub-second ticks
-            plugins: {
-                legend: { display: false },
-                tooltip: { enabled: false }
+        // Dynamic Chart Factory for standard single-line variables
+        const createConfig = (hexColor, yMax) => ({
+            type: 'line',
+            data: { 
+                labels: [], 
+                datasets: [{ 
+                    data: [], 
+                    borderColor: hexColor, 
+                    backgroundColor: hexColor + '10', // 10% opacity tail mapping
+                    borderWidth: 1.5, 
+                    pointRadius: 0, 
+                    fill: true, 
+                    tension: 0.2 // Smooth Bezier Curves
+                }] 
             },
-            scales: {
-                x: { display: false }, // Hide the raw Ticks
-                y: {
-                    min: 0,
-                    max: yMax,
-                    grid: { color: '#334155' },
-                    border: { display: false }
+            options: { 
+                responsive: true, 
+                maintainAspectRatio: false, 
+                animation: false, 
+                plugins: { legend: { display: false }, tooltip: { enabled: false } },
+                scales: { 
+                    x: { display: false }, 
+                    y: { min: 0, max: yMax, border: { display: false } } 
                 }
             }
-        }
-    });
+        });
 
-    const cpuChart = new Chart(cpuCtx, createConfig('#38bdf8', 100)); // sky-400
-    const ramChart = new Chart(ramCtx, createConfig('#c084fc', undefined)); // purple-400, scales dynamically to Machine limits
-
-    // ==========================================
-    // 2. WebSocket Listener Mapping
-    // ==========================================
-
-    let timeIndex = 0;           // Simulates moving horizontal X axis
-    const SCROLL_LIMIT = 60;     // Lock array size to exact 60 units deep 
-
-    const ws = new WebSocket('ws://localhost:8081');
-
-    ws.onopen = () => {
-        document.getElementById('statusText').innerText = 'Online via Socket';
-        document.getElementById('statusText').classList.replace('text-slate-400', 'text-emerald-400');
-        document.getElementById('pingRing').classList.replace('bg-red-400', 'bg-emerald-400');
-        document.getElementById('pingDot').classList.replace('bg-red-500', 'bg-emerald-500');
-    };
-
-    ws.onclose = () => {
-        document.getElementById('statusText').innerText = 'Offline - Reconnecting...';
-        document.getElementById('statusText').classList.replace('text-emerald-400', 'text-red-400');
-        document.getElementById('pingRing').classList.replace('bg-emerald-400', 'bg-red-400');
-        document.getElementById('pingDot').classList.replace('bg-emerald-500', 'bg-red-500');
-    };
-
-    ws.onmessage = (event) => {
-        const payload = JSON.parse(event.data);
-
-        // --- Stream Engine Map ---
-        if (payload.type === 'telemetry') {
-            
-            // Mirror live textual metrics
-            document.getElementById('cpuReadout').innerText = payload.cpu.toFixed(1) + '%';
-            document.getElementById('ramReadout').innerText = payload.ram + ' MB';
-
-            // Mutate Arrays
-            cpuChart.data.labels.push(timeIndex);
-            cpuChart.data.datasets[0].data.push(payload.cpu);
-            
-            ramChart.data.labels.push(timeIndex);
-            ramChart.data.datasets[0].data.push(payload.ram);
-
-            // Horizontally Scroll Chart logic
-            if (cpuChart.data.labels.length > SCROLL_LIMIT) {
-                // Drop strictly index 0
-                cpuChart.data.labels.shift();
-                cpuChart.data.datasets[0].data.shift();
-                
-                ramChart.data.labels.shift();
-                ramChart.data.datasets[0].data.shift();
-            }
-
-            cpuChart.update();
-            ramChart.update();
-            timeIndex++;
-            
-        } 
-        // --- Security Alert Map ---
-        else if (payload.type === 'alert') {
-            
-            const logsBox = document.getElementById('alertsContainer');
-            const placeholder = document.getElementById('noAlertsMarker');
-            
-            if (placeholder) {  
-                placeholder.remove(); // Evict blank state UI  
-            }
-
-            // Generate DOM Alert Card
-            const alertNode = document.createElement('div');
-            alertNode.className = 'bg-red-950/60 border-l-4 border-red-500 rounded p-3 shadow-md animate-slide-in';
-            
-            const timestamp = new Date().toLocaleTimeString();
-            
-            // Format inside
-            alertNode.innerHTML = `
-                <div class="flex justify-between items-start mb-2">
-                    <span class="text-xs font-bold text-red-100 bg-red-600 px-2 py-0.5 rounded shadow-sm">
-                        ${payload.severity}
-                    </span>
-                    <span class="text-xs font-mono text-slate-400">${timestamp}</span>
-                </div>
-                <p class="text-sm text-red-200 mt-1 flex items-center">
-                    ${payload.message}
-                </p>
-            `;
-
-            // Prepend strictly ensures LIFO (Top-Down execution rendering)
-            logsBox.prepend(alertNode);
-            
-            // Restrict memory leak to capping only last 25 visuals
-            if (logsBox.children.length > 25) {
-                logsBox.lastElementChild.remove();
-            }
-        }
-    };
-
-    // Inline utility styling appended to shadow DOM
-    const runtimeStyles = document.createElement('style');
-    runtimeStyles.innerHTML = `
-        /* Tailored custom-scrollbar since Webkit drops it randomly */
-        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: #0f172a; border-radius: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #475569; }
+        const cpuChart = new Chart(cpuCtx, createConfig('#38bdf8', 100)); // text-sky-400
+        const ramChart = new Chart(ramCtx, createConfig('#c084fc', undefined)); // text-purple-400
         
-        /* Micro-interaction UI for alerts spawning natively top to down */
-        @keyframes slide-in {
-            0% { opacity: 0; transform: translateY(-10px); }
-            100% { opacity: 1; transform: translateY(0); }
-        }
-        .animate-slide-in {
-            animation: slide-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-        }
-    `;
-    document.head.appendChild(runtimeStyles);
-</script>
+        // Multi-line configuration exclusively for Network Throughput mapping
+        const networkChart = new Chart(netCtx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [
+                    { label: 'Rx (MB)', data: [], borderColor: '#34d399', backgroundColor: '#34d39908', borderWidth: 1.5, pointRadius: 0, fill: true, tension: 0.3 }, // emerald
+                    { label: 'Tx (MB)', data: [], borderColor: '#fb7185', backgroundColor: '#fb718508', borderWidth: 1.5, pointRadius: 0, fill: true, tension: 0.3 }  // rose
+                ]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false, animation: false,
+                plugins: { legend: { display: false }, tooltip: { enabled: false } },
+                scales: { x: { display: false }, y: { min: 0, border: { display: false } } }
+            }
+        });
 
+        // ==========================================
+        // 2. WebSocket Listener Engine
+        // ==========================================
+        let timeIndex = 0;
+        const SCROLL_LIMIT = 60; // Max horizontal screen buffers
+
+        const ws = new WebSocket('ws://localhost:8081');
+
+        ws.onopen = () => {
+            document.getElementById('statusText').innerText = 'LINK SECURE';
+            document.getElementById('statusText').classList.replace('text-slate-500', 'text-emerald-500');
+            document.getElementById('pingRing').classList.replace('bg-red-400', 'bg-emerald-400');
+            document.getElementById('pingDot').classList.replace('bg-red-500', 'bg-emerald-500');
+        };
+
+        ws.onclose = () => {
+            document.getElementById('statusText').innerText = 'OFFLINE';
+            document.getElementById('statusText').classList.replace('text-emerald-500', 'text-rose-500');
+            document.getElementById('pingRing').classList.replace('bg-emerald-400', 'bg-rose-500');
+            document.getElementById('pingDot').classList.replace('bg-emerald-500', 'bg-rose-600');
+        };
+
+        ws.onmessage = (event) => {
+            const payload = JSON.parse(event.data);
+
+            if (payload.type === 'telemetry') {
+                
+                // 1. Digital Text Blocks Update (with NULL protection armour)
+                document.getElementById('cpuReadout').innerText = (payload.cpu || 0).toFixed(1) + '%';
+                document.getElementById('ramReadout').innerText = (payload.ram || 0) + ' MB';
+                document.getElementById('threadsReadout').innerText = payload.threads || 0;
+                document.getElementById('uptimeReadout').innerText = (payload.uptime_hours || 0).toFixed(2);
+                
+                document.getElementById('rxReadout').innerText = (payload.network_rx_mb || 0).toFixed(2);
+                document.getElementById('txReadout').innerText = (payload.network_tx_mb || 0).toFixed(2);
+                
+                // 2. Linear Progress Bar Execution logic
+                document.getElementById('diskReadoutLabel').innerText = payload.disk_percent.toFixed(1) + '%';
+                // Trigger dynamic red warning if disk usage scales over 85%
+                if (payload.disk_percent > 85) {
+                    document.getElementById('diskProgressBar').classList.replace('bg-cyan-500', 'bg-rose-500');
+                } else {
+                    document.getElementById('diskProgressBar').classList.replace('bg-rose-500', 'bg-cyan-500');
+                }
+                // Physically snap the CSS width geometry
+                document.getElementById('diskProgressBar').style.width = payload.disk_percent + '%';
+
+                // 3. Chart Array Injection
+                cpuChart.data.labels.push(timeIndex);
+                cpuChart.data.datasets[0].data.push(payload.cpu);
+                
+                ramChart.data.labels.push(timeIndex);
+                ramChart.data.datasets[0].data.push(payload.ram);
+
+                networkChart.data.labels.push(timeIndex);
+                networkChart.data.datasets[0].data.push(payload.network_rx_mb);
+                networkChart.data.datasets[1].data.push(payload.network_tx_mb);
+
+                // 4. Sliding Array Array Slice Logic
+                if (cpuChart.data.labels.length > SCROLL_LIMIT) {
+                    // Culls oldest trailing array index securely to avoid memory ramp
+                    cpuChart.data.labels.shift();
+                    cpuChart.data.datasets[0].data.shift();
+                    
+                    ramChart.data.labels.shift();
+                    ramChart.data.datasets[0].data.shift();
+
+                    networkChart.data.labels.shift();
+                    networkChart.data.datasets[0].data.shift();
+                    networkChart.data.datasets[1].data.shift();
+                }
+
+                // Force DOM HTML5 Canvas redraw mapping
+                cpuChart.update();
+                ramChart.update();
+                networkChart.update();
+                timeIndex++;
+                
+            } else if (payload.type === 'alert') {
+                
+                // --- Real Time Ops Feed Generator ---
+                const logsBox = document.getElementById('alertsContainer');
+                const placeholder = document.getElementById('noAlertsMarker');
+                if (placeholder) placeholder.remove();
+
+                const node = document.createElement('div');
+                node.className = 'bg-rose-950/30 border-l border-rose-500/50 p-3 rounded-r-md animate-slide-in relative overflow-hidden group';
+                
+                node.innerHTML = `
+                    <div class="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-rose-500/40 to-transparent"></div>
+                    <div class="flex justify-between items-center mb-1.5">
+                        <span class="text-[9px] uppercase font-black text-rose-300 bg-rose-900/50 px-1.5 py-0.5 rounded tracking-widest">${payload.severity}</span>
+                        <span class="text-[9px] text-slate-500 font-mono tracking-tighter">${new Date().toLocaleTimeString()}</span>
+                    </div>
+                    <p class="text-xs text-rose-200 mt-1 leading-relaxed font-sans">${payload.message}</p>
+                `;
+                
+                logsBox.prepend(node); // Drop strictly downward logic
+                
+                // Cleanup logs explicitly past 25 objects
+                if (logsBox.children.length > 25) logsBox.lastElementChild.remove();
+            }
+        };
+
+        // Utility Native Embedded Styling mapping
+        const style = document.createElement('style');
+        style.innerHTML = `
+            .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+            .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+            .custom-scrollbar::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
+            .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #334155; }
+            
+            /* Slide element into container using highly optimized transform maps */
+            @keyframes slide-in { 
+                0% { opacity: 0; transform: translateY(-8px) scale(0.98); } 
+                100% { opacity: 1; transform: translateY(0) scale(1); } 
+            }
+            .animate-slide-in { animation: slide-in 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        `;
+        document.head.appendChild(style);
+    </script>
 </body>
 </html>
