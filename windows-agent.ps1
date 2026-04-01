@@ -1,4 +1,4 @@
-[string]$ServerUri = "https://uncondoled-ashlyn-spastically.ngrok-free.dev/api/stats" # <-- CHANGE THIS IF NEEDED
+[string]$ServerUri = "http://4.240.101.43:8080/api/stats" # <-- CHANGE THIS IF NEEDED
 
 while ($true) {
      try {
