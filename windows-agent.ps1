@@ -1,4 +1,4 @@
-[string]$ServerUri = "http://4.240.101.43:8080/api/stats" # <-- CHANGE THIS IF NEEDED
+[string]$ServerUri = "http://sentinel-fleet.centralindia.cloudapp.azure.com:8080/api/stats" # <-- Port 8080 added
 
 while ($true) {
      try {
@@ -15,7 +15,7 @@ while ($true) {
          $disk = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'"
          $disk_percent = 0.0
          if ($disk -ne $null -and $disk.Size -gt 0) {
-             $disk_percent = [math]::Round((($disk.Size - $disk.FreeSpace) / $disk.Size) * 100, 1) # or just 99.9
+             $disk_percent = [math]::Round((($disk.Size - $disk.FreeSpace) / $disk.Size) * 100, 1)
          }
 
          # Global Network Bridge Throughput (Active Adapters)
