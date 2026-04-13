@@ -1,8 +1,11 @@
-[string]$ServerUri = "http://sentinel-fleet.centralindia.cloudapp.azure.com:8080/api/stats" # <-- Port 8080 added
+[string]$ServerUri = "http://sentinel-fleet.centralindia.cloudapp.azure.com:8080/api/stats"
+
+# 1. Dynamically capture the Hostname
+$agent_name = $env:COMPUTERNAME
 
 while ($true) {
      try {
-         # 1. Intercept Native Windows Hardware Metrics
+         # 2. Intercept Native Windows Hardware Metrics
          $cpu = [math]::Round((Get-CimInstance Win32_Processor | Measure-Object -Property LoadPercentage -Average).Average, 1)
 
          $os = Get-CimInstance Win32_OperatingSystem
@@ -28,9 +31,9 @@ while ($true) {
          # Total System Uptime
          $uptime_hours = [math]::Round(((Get-Date) - $os.LastBootUpTime).TotalHours, 2)
 
-         # 2. Package Strict JSON Payload
+         # 3. Package Strict JSON Payload (Now using Dynamic Agent ID)
          $payload = @{
-             agent_id      = "Windows-Node"
+             agent_id      = $agent_name
              cpu           = $cpu
              ram           = $ramMB
              threads       = $threads
@@ -40,11 +43,11 @@ while ($true) {
              uptime_hours  = $uptime_hours
          } | ConvertTo-Json -Compress
 
-         # 3. Transmit HTTP POST Packet over REST Tunnel
+         # 4. Transmit HTTP POST Packet over REST Tunnel
          Invoke-RestMethod -Uri $ServerUri -Method Post -Body $payload -ContentType "application/json" | Out-Null
 
          # Terminal Visualizer Snapshot
-         Write-Host "[Windows-Node] Extracted -> CPU: $cpu% | RAM: ${ramMB} MB | Thr: $threads | Disk: ${disk_percent}% | Rx: ${network_rx_mb} MB | Tx: ${network_tx_mb} MB | Up: ${uptime_hours} h" -ForegroundColor Green
+         Write-Host "[$agent_name] Extracted -> CPU: $cpu% | RAM: ${ramMB} MB | Thr: $threads | Disk: ${disk_percent}% | Rx: ${network_rx_mb} MB | Tx: ${network_tx_mb} MB | Up: ${uptime_hours} h" -ForegroundColor Green
      }
      catch {
          # THIS IS THE MAGIC FIX: It will print the exact reason it crashed
