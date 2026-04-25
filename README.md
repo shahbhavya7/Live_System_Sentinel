@@ -1,4 +1,4 @@
-# 🛰️ Helix - Live Fleet Intelligence
+# 🌀 Helix — Live Fleet Intelligence
 
 <div align="center">
 
@@ -17,7 +17,7 @@
 
 </div>
 
----
+
 
 ## 🌟 Features
 
@@ -35,9 +35,9 @@
 
 </div>
 
----
 
-## ✨ What Makes Sentinel Special?
+
+## ✨ What Makes Helix Special?
 
 - **📊 Live Fleet Dashboard** — Dynamically spawned per-node cards with sparkline CPU/RAM charts, disk progress bars, thread counts, and network Rx/Tx — all updating every second
 - **⚡ Dual-Protocol Server** — A single Java server simultaneously runs gRPC (port 9090), REST HTTP (port 8080), and WebSocket broadcast (port 8081) to accommodate every agent type
@@ -48,7 +48,7 @@
 - **📍 Azure-Deployed** — Production server running on Azure Central India, accessible from any device with a browser
 - **🎨 Zero-Dependency Frontend** — Pure HTML5 + Tailwind CSS + Chart.js dashboard, served as a single file with no build step required
 
----
+
 
 ## 🚀 Quick Start
 
@@ -68,8 +68,8 @@ mvn -version
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/sentinel-sre-fleet-command.git
-   cd sentinel-sre-fleet-command
+   git clone https://github.com/yourusername/helix-fleet-intelligence.git
+   cd helix-fleet-intelligence
    ```
 
 2. **Compile and package the fat JAR**
@@ -78,7 +78,7 @@ mvn -version
    ```
    Maven will automatically generate gRPC stubs from `monitor.proto` via `protobuf-maven-plugin`.
 
-3. **Start the Sentinel Server**
+3. **Start the Helix Server**
    ```bash
    java -jar target/live-system-sentinel-1.0-SNAPSHOT.jar
    ```
@@ -113,44 +113,55 @@ mvn -version
 
    Open `index.html` in any modern browser. The dashboard will connect to the WebSocket server and begin rendering live node cards automatically.
 
----
+
 
 ## 🏗️ System Architecture
 
+```mermaid
+graph TB
+    subgraph AGENTS["🖥️ Agent Layer"]
+        A1["☕ Java Agent<br/>(JMX / JVM)"]
+        A2["🪟 PowerShell Agent<br/>(Windows / WMI)"]
+        A3["🍎 Bash Agent<br/>(macOS / syscalls)"]
+    end
+
+    subgraph SERVER["⚙️ Helix Server — Central Hub"]
+        G["gRPC Server<br/>port 9090"]
+        R["REST HTTP Server<br/>port 8080"]
+        W["WebSocket Server<br/>port 8081"]
+        SIEM["🔐 SIEM Threat Engine<br/>Weighted Scoring · WARNING / CRITICAL"]
+    end
+
+    subgraph CLIENTS["📊 Client Layer"]
+        WD["🌐 Web Dashboard<br/>HTML · Tailwind · Chart.js<br/>Fleet Cards + Alert Feed"]
+        JFX["🖼️ JavaFX Desktop UI<br/>Line Chart · CPU Monitor"]
+    end
+
+    A1 -- "SystemStats protobuf<br/>(gRPC stream)" --> G
+    G -- "Alert protobuf<br/>(gRPC response)" --> A1
+
+    A2 -- "JSON POST<br/>(REST /api/stats)" --> R
+    A3 -- "JSON POST<br/>(REST /api/stats)" --> R
+
+    G --> SIEM
+    R --> SIEM
+
+    SIEM -- "Telemetry JSON<br/>(WebSocket broadcast)" --> W
+    SIEM -- "Alert JSON<br/>(WebSocket broadcast)" --> W
+
+    W -- "ws:// live feed" --> WD
+
+    G -- "SubscribeToDashboard<br/>(gRPC server stream)" --> JFX
+
+    style AGENTS fill:#1e293b,stroke:#38bdf8,color:#e2e8f0
+    style SERVER fill:#1e293b,stroke:#a855f7,color:#e2e8f0
+    style CLIENTS fill:#1e293b,stroke:#10b981,color:#e2e8f0
+    style SIEM fill:#4c0519,stroke:#f43f5e,color:#fda4af
+    style WD fill:#064e3b,stroke:#10b981,color:#a7f3d0
+    style JFX fill:#064e3b,stroke:#10b981,color:#a7f3d0
 ```
-┌──────────────────────────────────────────────────────────────────────┐
-│                        SENTINEL SRE PLATFORM                         │
-│                                                                      │
-│  ┌─────────────┐   gRPC stream   ┌──────────────────────────────┐   │
-│  │  Java Agent  │ ──────────────► │                              │   │
-│  │ (JMX/JVM)   │ ◄────────────── │      Sentinel Server         │   │
-│  └─────────────┘   Alert proto   │                              │   │
-│                                  │  ● gRPC Server  (port 9090)  │   │
-│  ┌─────────────┐   REST POST     │  ● REST HTTP    (port 8080)  │   │
-│  │  PowerShell  │ ──────────────► │  ● WebSocket    (port 8081)  │   │
-│  │   Agent     │                 │                              │   │
-│  └─────────────┘                 │     SIEM Threat Engine       │   │
-│                                  │  (Weighted Scoring + Alerts) │   │
-│  ┌─────────────┐   REST POST     │                              │   │
-│  │  Bash Agent  │ ──────────────► └──────────┬───────────────────┘   │
-│  │  (macOS)    │                             │ WebSocket broadcast   │
-│  └─────────────┘                  ┌──────────▼───────────────────┐   │
-│                                   │     Web Dashboard            │   │
-│  ┌─────────────┐   gRPC subscribe │  (HTML/Tailwind/Chart.js)    │   │
-│  │  JavaFX UI  │ ◄──────────────── │  Fleet Cards + Alert Feed    │   │
-│  │ (Desktop)   │                  └──────────────────────────────┘   │
-│  └─────────────┘                                                     │
-└──────────────────────────────────────────────────────────────────────┘
-```
 
-### Data Flow
 
-- **Java Agent → gRPC (9090) → Server → WebSocket → Web Dashboard**
-- **Shell Agents → REST POST (8080) → Server → WebSocket → Web Dashboard**
-- **Server → gRPC SubscribeToDashboard → JavaFX Desktop UI**
-- **SIEM Engine → Alert JSON → WebSocket broadcast → Global Intelligence Feed**
-
----
 
 ## 🛠️ Tech Stack
 
@@ -176,7 +187,7 @@ mvn -version
 | **Security** | Custom SIEM weighted heuristic threat-scoring engine |
 | **OS Support** | Windows 10/11, macOS (Intel & Apple Silicon), Ubuntu Linux |
 
----
+
 
 ## 💡 How It Works
 
@@ -225,7 +236,7 @@ The web dashboard maintains a persistent WebSocket connection to the server. On 
 - **Sparkline Charts**: Rolling 45-point CPU and RAM time-series charts (Chart.js)
 - **Global Intelligence Feed**: Severity-tagged alert log for all nodes, auto-scrolling
 
----
+
 
 ## 📁 Project Structure
 
@@ -250,7 +261,7 @@ sentinel-sre-fleet-command/
 └── .gitignore
 ```
 
----
+
 
 ## 🎮 Key Components
 
@@ -281,25 +292,25 @@ Both `windows-agent.ps1` and `mac-agent.sh` dynamically resolve their own hostna
 
 A single-file SPA. The `enforceNodeCard()` factory function generates and injects complete node card HTML on first sight of a new `agent_id`, then holds chart and DOM references in a JavaScript `nodes` map for subsequent O(1) updates. Maintains a 45-point rolling buffer per chart to prevent memory growth.
 
----
+
 
 ## 🌐 Deployment
 
-The Sentinel server is deployed on **Microsoft Azure (Central India region)**:
+The Helix server is deployed on **Microsoft Azure (Central India region)**:
 
 | Service | Endpoint |
 |---|---|
-| REST API | `http://sentinel-fleet.centralindia.cloudapp.azure.com:8080/api/stats` |
+| REST API | `http://helix-fleet.centralindia.cloudapp.azure.com:8080/api/stats` |
 | WebSocket | `ws://4.240.101.43:8081` |
 | gRPC | `4.240.101.43:9090` |
 
 To point agents at the live Azure server, the PowerShell and Bash agents are pre-configured with the production `SERVER_URL`. For the Java agent, pass the Azure IP as the first argument:
 
 ```bash
-java -jar sentinel.jar 4.240.101.43 MyNode-01
+java -jar helix.jar 4.240.101.43 MyNode-01
 ```
 
----
+
 
 ## 📊 API Reference
 
@@ -349,46 +360,10 @@ If a threat is detected, an additional alert message is broadcast:
 }
 ```
 
----
 
-## 🤝 Team
 
-| Member | Role | Responsibilities |
-|---|---|---|
-| **Bhavya Shah** | Backend | gRPC server, Protobuf schema (`monitor.proto`), `SentinelServiceImpl`, Java agent, SIEM threat scoring engine |
-| **Mrinmayee Gokhale & Hritvi Bhole** | Frontend & Integration | Web dashboard (`index.html`), WebSocket client, Chart.js sparklines, REST HTTP server, shell agents (PowerShell & Bash) |
-| **Lakshya Upadhyaya** | DevOps & QA | Azure VM provisioning, Maven build, fat JAR packaging, cross-platform deployment & testing, backward compatibility validation |
 
----
 
-## 🧪 Experiments & Future Scope
-
-### Possible Enhancements
-
-- **🗄️ Persistent Storage** — Time-series database (InfluxDB / TimescaleDB) for historical trend analysis and SLO tracking
-- **🔐 Authentication** — JWT-based access control for the REST API and WebSocket connections
-- **🐧 Linux Agent** — Native Bash agent reading `/proc/stat`, `/proc/meminfo`, and `ss` for full cross-platform parity
-- **📱 Mobile Dashboard** — Responsive PWA for on-call SREs to monitor fleet health from mobile devices
-- **🤖 ML Anomaly Detection** — Replace static heuristic thresholds with an LSTM or Isolation Forest model trained on historical node baselines
-- **🔔 Push Notifications** — PagerDuty / Slack webhook integration to route CRITICAL alerts to on-call channels
-- **📈 ELK Integration** — Log forwarding to Elasticsearch for full-text search and Kibana visualization
-- **🐳 Dockerization** — Containerize the server with a `docker-compose.yml` for one-command local deployment
-
----
-
-## 🎓 Educational Value
-
-This project demonstrates key distributed systems concepts in a cohesive, production-grade context:
-
-- **gRPC Streaming** — Bidirectional and server-side streaming patterns with Protobuf serialization
-- **WebSocket Broadcasting** — Real-time push to multiple browser clients from a central server
-- **Concurrent Server Design** — Three independent network servers running on separate thread pools within one JVM process
-- **SIEM Architecture** — Heuristic threat scoring pipelines inspired by real-world security analytics
-- **High-Availability Patterns** — Auto-reconnect with latch-based state management in distributed agents
-- **Cross-Platform Scripting** — WMI-based system interrogation in PowerShell vs. native syscall sampling in Bash
-- **Frontend Real-Time Rendering** — Dynamic DOM injection, Chart.js rolling buffers, and WebSocket event handling in vanilla JS
-
----
 
 ## 📮 Future Roadmap
 
@@ -405,9 +380,9 @@ This project demonstrates key distributed systems concepts in a cohesive, produc
 
 <div align="center">
 
-  **⭐ Star this repo if it helped you understand distributed systems! ⭐**
+  ⭐ Star this repo if it helped you understand distributed systems! ⭐
 
-  🚀 Built with Java + gRPC + WebSocket | 📡 Deployed on Azure | 🛡️ Powered by real-time SIEM analytics
+  🚀 Built with Java + gRPC + WebSocket | 📡 Deployed on Azure | 🛡️ Powered by Helix real-time SIEM analytics
 
 </div>
 
