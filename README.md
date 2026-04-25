@@ -1,4 +1,4 @@
-# 🌀 Helix — Live Fleet Intelligence
+# 🌀 Helix - Live Fleet Intelligence
 
 <div align="center">
 
